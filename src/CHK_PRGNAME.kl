@@ -1,0 +1,101 @@
+--* coding: Shift-jis *--
+--
+--  --------------------------------------
+--  Released under the Apache 2.0 License.
+--  Yuki Meguro
+--  --------------------------------------
+--
+--  --------------------------------------
+--  Author: Yuki Meguro
+--
+--  Description:
+--		動的にプログラム名を生成する場合などに
+--		存在しないプログラムの呼び出しを回避するための
+--		KARELプログラムです
+--
+--		引数[1]=プログラム名文字列
+--		引数[2]=出力先レジスタ
+--
+--		ファイルが存在する場合には0を
+--		ファイルが存在しない場合には1をレジスタに書き込みます
+--		その他の場合(実行中など)は-1となります
+--		多くの場合0以外の値であったときには異常処理を行ってください
+--
+--  Dependancies: none
+--  --------------------------------------
+
+PROGRAM CHK_PRGNAME
+%SYSTEM
+%NOLOCKGROUP
+%NOPAUSESHFT
+%NOPAUSE=ERROR+COMMAND+TPENABLE
+%COMMENT = 'v1.0'
+CONST
+	PRM_INT   = 1
+	PRM_STR   = 3
+	NOTFOUND  = 7073 -- ﾒﾓﾘ-073 指定したﾌﾟﾛｸﾞﾗﾑは存在しません
+VAR
+	status: INTEGER
+
+	ROUTINE PrgError
+	BEGIN
+		ABORT
+	END PrgError
+
+	ROUTINE GetPrmInt(prm_no: INTEGER): INTEGER
+	VAR
+		int_value: INTEGER
+		real_value: REAL
+		str_value: STRING[1]
+	BEGIN
+		GET_TPE_PRM(prm_no, PRM_INT, int_value, real_value, str_value, status)
+		IF status<>0 THEN
+			PrgError
+		ENDIF
+		RETURN(int_value)
+	END GetPrmInt
+
+
+	ROUTINE GetPrmStr(prm_no: INTEGER): STRING
+	VAR
+		int_value: INTEGER
+		real_value: REAL
+		str_value: STRING[128]
+	BEGIN
+		GET_TPE_PRM(prm_no, PRM_STR, int_value, real_value, str_value, status)
+		IF status<>0 THEN
+			PrgError
+		ENDIF
+		RETURN(str_value)
+	END GetPrmStr
+
+
+	ROUTINE SetRegInt(reg_no:INTEGER; val: INTEGER)
+	BEGIN
+		SET_INT_REG(reg_no, val, status)
+	END SetRegInt
+
+
+	ROUTINE ChkPrgname(prg_name: STRING): INTEGER
+	VAR
+		open_id: INTEGER
+	BEGIN
+		OPEN_TPE(prg_name, TPE_RDACC, TPE_ALLREJ, open_id, status) 
+		SELECT status OF
+			CASE(0):
+				RETURN(0)
+			CASE(NOTFOUND):
+				RETURN(1)
+			ELSE:
+				RETURN(-1)
+		ENDSELECT
+	END ChkPrgname
+
+	ROUTINE Main
+	BEGIN
+		SetRegInt(GetPrmInt(2), ChkPrgname(GetPrmStr(1)))
+	END Main
+
+BEGIN
+	Main
+END CHK_PRGNAME
